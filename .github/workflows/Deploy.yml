@@ -29,8 +29,8 @@ jobs:
           # 登录阿里云镜像容器
           echo "${{ ALIYUN_REGISTRY_PASSWORD }}" | docker login -u ${{ ALIYUN_REGISTRY_USER }} ${{ ALIYUN_REGISTRY }} --password-stdin
           docker build -t dev-nginx . 
-          docker tag dev-nginx registry.cn-guangzhou.aliyuncs.com/ALIYUN_NAME_SPAC/nginx:latest
-          docker push registry.cn-guangzhou.aliyuncs.com/ALIYUN_NAME_SPAC/nginx:latest
+          docker tag dev-nginx registry.cn-guangzhou.aliyuncs.com/${{ALIYUN_NAME_SPAC}}/nginx:latest
+          docker push registry.cn-guangzhou.aliyuncs.com/${{ALIYUN_NAME_SPAC}}/nginx:latest
       - name: ssh docker login
         uses: appleboy/ssh-action@master
         with:
@@ -41,23 +41,14 @@ jobs:
             echo -e "---------登录镜像容器服务--------"
             # 登录阿里云镜像容器服务
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} ${{ secrets.DOCKER_REGISTRY }} --password-stdin
-            echo -e "---------停掉镜像--------"
-            # 停掉容器
-            docker stop jimkingkong-nginx
-            echo -e "---------删除本地容器和镜像--------"
-            # 删除本地容器和镜像
-            docker rmi jimkingkong-nginx
-            docker rm jimkingkong-nginx
-            # 删除本地镜像
-            docker rmi registry.cn-guangzhou.aliyuncs.com/jimkingkong/nginx:latest
-            echo -e "---------拉取镜像--------"
+          
             # 拉取镜像
-            docker pull registry.cn-guangzhou.aliyuncs.com/jimkingkong/nginx:latest
+            docker pull registry.cn-guangzhou.aliyuncs.com/${{ALIYUN_NAME_SPAC}}/nginx:latest
             echo -e "---------创建容器并运行容器--------"
             # -rm: docker会在容器退出时删除与它关联的数据卷
             # -d: 后台运行容器，并返回容器ID
             # -p: 端口映射，本机端口:容器端口
             # --name: 指定容器名称
             # 最后一个为镜像名称
-            docker run -d --name jimkingkong-nginx -p 8080:80 registry.cn-guangzhou.aliyuncs.com/jimkingkong/nginx
+            docker run -d --name dev-nginx -p 8080:80 registry.cn-guangzhou.aliyuncs.com/${{ALIYUN_NAME_SPAC}}/nginx
             echo -e "---------执行完毕--------"
