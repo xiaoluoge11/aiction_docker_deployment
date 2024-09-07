@@ -17,12 +17,6 @@ jobs:
       steps:
       - name: checkout # 步骤名字
         uses: actions/checkout@master
-        
-      - name: install
-        run: npm install
-
-      - name: build project
-        run: npm run build
 
       - name: Build the Docker image
         run: |
