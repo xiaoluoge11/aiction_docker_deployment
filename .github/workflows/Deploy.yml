@@ -1,36 +1,63 @@
-# This is a basic workflow to help you get started with Actions
+name: Docker Image CI # Actions名称
 
-name: CI
-
-# Controls when the workflow will run
-on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
+on: # 执行时机
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches:
+      - master 
+      - release
+env:
+  ALIYUN_REGISTRY: "${{ secrets.ALIYUN_REGISTRY }}"
+  ALIYUN_NAME_SPACE: "${{ secrets.ALIYUN_NAME_SPACE }}"
+  ALIYUN_REGISTRY_USER: "${{ secrets.ALIYUN_REGISTRY_USER }}"
+  ALIYUN_REGISTRY_PASSWORD: "${{ secrets.ALIYUN_REGISTRY_PASSWORD }}"
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
   build:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+      runs-on: ubuntu-latest
+      steps:
+      - name: checkout # 步骤名字
+        uses: actions/checkout@master
+        
+      - name: install
+        run: npm install
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+      - name: build project
+        run: npm run build
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
-
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
+      - name: Build the Docker image
         run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+          # 登录阿里云镜像容器
+          echo "${{ ALIYUN_REGISTRY_PASSWORD }}" | docker login -u ${{ ALIYUN_REGISTRY_USER }} ${{ ALIYUN_REGISTRY }} --password-stdin
+          docker build -t dev-nginx . 
+          docker tag dev-nginx registry.cn-guangzhou.aliyuncs.com/ALIYUN_NAME_SPAC/nginx:latest
+          docker push registry.cn-guangzhou.aliyuncs.com/ALIYUN_NAME_SPAC/nginx:latest
+      - name: ssh docker login
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          script:  | 
+            echo -e "---------登录镜像容器服务--------"
+            # 登录阿里云镜像容器服务
+            echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} ${{ secrets.DOCKER_REGISTRY }} --password-stdin
+            echo -e "---------停掉镜像--------"
+            # 停掉容器
+            docker stop jimkingkong-nginx
+            echo -e "---------删除本地容器和镜像--------"
+            # 删除本地容器和镜像
+            docker rmi jimkingkong-nginx
+            docker rm jimkingkong-nginx
+            # 删除本地镜像
+            docker rmi registry.cn-guangzhou.aliyuncs.com/jimkingkong/nginx:latest
+            echo -e "---------拉取镜像--------"
+            # 拉取镜像
+            docker pull registry.cn-guangzhou.aliyuncs.com/jimkingkong/nginx:latest
+            echo -e "---------创建容器并运行容器--------"
+            # -rm: docker会在容器退出时删除与它关联的数据卷
+            # -d: 后台运行容器，并返回容器ID
+            # -p: 端口映射，本机端口:容器端口
+            # --name: 指定容器名称
+            # 最后一个为镜像名称
+            docker run -d --name jimkingkong-nginx -p 8080:80 registry.cn-guangzhou.aliyuncs.com/jimkingkong/nginx
+            echo -e "---------执行完毕--------"
